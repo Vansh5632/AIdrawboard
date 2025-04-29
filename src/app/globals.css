@@ -120,3 +120,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+.exaclidraw{
+  height:100vh !important;
+  width:100vw !important;
+}

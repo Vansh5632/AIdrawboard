@@ -7,12 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Switch } from "@/components/ui/switch"; // For theme toggle
-import { Moon, Sun } from "lucide-react"; // Icons for theme toggle
+import { Moon, Sun } from "lucide-react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
 
+// Dynamically import Excalidraw to ensure it only runs on the client
 const Excalidraw = dynamic(
   async () => {
     const { Excalidraw } = await import("@excalidraw/excalidraw");
@@ -22,12 +28,20 @@ const Excalidraw = dynamic(
 );
 
 export default function Home() {
-  const { elements, setElements, roomId } = useWhiteboardStore();
+  const { setElements, roomId } = useWhiteboardStore();
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [isCollaborating, setIsCollaborating] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const excalidrawRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const isInitialMount = useRef(true);
+  const [isClient, setIsClient] = useState(false); // New state to track client-side rendering
+
+  // Initial shapes
+  const elements = convertToExcalidrawElements([
+    { type: "rectangle", x: 100, y: 250 },
+    { type: "ellipse", x: 250, y: 250 },
+    { type: "diamond", x: 380, y: 250 },
+  ]);
 
   const handleChange = (updatedElements: any) => {
     if (JSON.stringify(updatedElements) !== JSON.stringify(elements)) {
@@ -44,6 +58,10 @@ export default function Home() {
       excalidrawRef.current.updateScene({ elements });
     }
   }, [elements]);
+
+  useEffect(() => {
+    setIsClient(true); // Set isClient to true when the component mounts on the client
+  }, []);
 
   const toggleAnalysis = () => setShowAnalysis(!showAnalysis);
   const toggleCollaboration = () => setIsCollaborating(!isCollaborating);
@@ -70,7 +88,6 @@ export default function Home() {
                   className="relative bg-gray-800/50 border-gray-600 text-white hover:bg-gradient-to-r hover:from-pink-500/20 hover:to-purple-500/20 transition-all duration-300 hover:shadow-[0_0_15px_rgba(236,72,153,0.5)]"
                 >
                   {showAnalysis ? "Hide Analysis" : "Show Analysis"}
-                  <span className="absolute inset-0 rounded-md bg-gradient-to-r from-pink-500/20 to-purple-500/20 opacity-0 hover:opacity-100 transition-opacity" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -91,7 +108,6 @@ export default function Home() {
                   )}
                 >
                   {isCollaborating ? "Stop Sharing" : "Collaborate"}
-                  <span className="absolute inset-0 rounded-md bg-gradient-to-r from-green-400/20 to-blue-500/20 opacity-0 hover:opacity-100 transition-opacity" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -106,7 +122,11 @@ export default function Home() {
                   onClick={toggleTheme}
                   className="text-white hover:bg-gray-700/50"
                 >
-                  {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                  {theme === "dark" ? (
+                    <Sun className="h-5 w-5" />
+                  ) : (
+                    <Moon className="h-5 w-5" />
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -126,12 +146,22 @@ export default function Home() {
               "border border-gray-700/50 hover:shadow-[0_0_20px_rgba(99,102,241,0.3)]"
             )}
           >
-            <Excalidraw
-              ref={excalidrawRef}
-              onChange={handleChange}
-              initialData={{ elements: elements || [] }}
-              theme={theme}
-            />
+            {isClient && (
+              <Excalidraw
+                excalidrawAPI={(api) => (excalidrawRef.current = api)}
+                onChange={handleChange}
+                initialData={{
+                  elements,
+                  appState: {
+                    zenModeEnabled: true,
+                    viewBackgroundColor: "#a5d8ff",
+                    theme,
+                  },
+                  scrollToContent: true,
+                }}
+                theme={theme}
+              />
+            )}
           </div>
 
           {/* AI Analysis Panel */}
@@ -150,19 +180,24 @@ export default function Home() {
               <CardContent className="px-6 py-2 space-y-6">
                 <div className="bg-gray-800/50 p-4 rounded-xl shadow-inner hover:bg-gray-800/70 transition-colors">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-white">Shape Recognition</h3>
+                    <h3 className="font-medium text-white">
+                      Shape Recognition
+                    </h3>
                     <Badge
                       variant="outline"
                       className="bg-gradient-to-r from-indigo-500/20 to-pink-500/20 text-white border-indigo-500/50"
                     >
-                      6 items
+                      3 items
                     </Badge>
                   </div>
                   <Separator className="bg-gray-700/50 my-2" />
                   <p className="text-sm text-gray-300">
-                    Detected <span className="font-bold text-pink-400">3 rectangles</span>,{" "}
-                    <span className="font-bold text-indigo-400">2 circles</span>, and{" "}
-                    <span className="font-bold text-purple-400">1 triangle</span>
+                    Detected{" "}
+                    <span className="font-bold text-pink-400">1 rectangle</span>
+                    ,{" "}
+                    <span className="font-bold text-indigo-400">1 ellipse</span>
+                    , and{" "}
+                    <span className="font-bold text-purple-400">1 diamond</span>
                   </p>
                 </div>
                 <div className="bg-gray-800/50 p-4 rounded-xl shadow-inner hover:bg-gray-800/70 transition-colors">
@@ -192,19 +227,11 @@ export default function Home() {
         {isCollaborating && (
           <div className="bg-gradient-to-r from-green-500/80 to-blue-600/80 text-white p-3 flex items-center gap-2 rounded-t-3xl mx-4 mb-4 shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div className="text-sm">
-              <span className="font-medium">Room: </span>
-              <span className="text-gray-200">
-                {roomId || "Creating session..."}
+              <span className="font-semibold">Collaboration Active</span> — Room
+              ID:{" "}
+              <span className="font-mono bg-black/20 px-2 py-0.5 rounded">
+                {roomId || "123-abc"}
               </span>
-            </div>
-            <div className="ml-auto flex gap-2 items-center">
-              <div className="h-2 w-2 rounded-full bg-green-300 animate-pulse" />
-              <Badge
-                variant="outline"
-                className="text-xs bg-white/10 border-green-400/50 text-green-200"
-              >
-                2 users connected
-              </Badge>
             </div>
           </div>
         )}

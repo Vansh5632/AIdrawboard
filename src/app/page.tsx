@@ -1,112 +1,214 @@
-// src/app/page.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Excalidraw } from "@excalidraw/excalidraw";
+import dynamic from "next/dynamic";
 import { useWhiteboardStore } from "@/stores/useWhiteboardStore";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type {
-  ExcalidrawImperativeAPI
-} from "@excalidraw/excalidraw/types";
+import { Switch } from "@/components/ui/switch"; // For theme toggle
+import { Moon, Sun } from "lucide-react"; // Icons for theme toggle
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+
+const Excalidraw = dynamic(
+  async () => {
+    const { Excalidraw } = await import("@excalidraw/excalidraw");
+    return Excalidraw;
+  },
+  { ssr: false }
+);
 
 export default function Home() {
   const { elements, setElements, roomId } = useWhiteboardStore();
   const [showAnalysis, setShowAnalysis] = useState(false);
-  const excalidrawRef = useRef<ExcalidrawImperativeAPI|null>(null);
   const [isCollaborating, setIsCollaborating] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const excalidrawRef = useRef<ExcalidrawImperativeAPI | null>(null);
+  const isInitialMount = useRef(true);
 
-  // Handle canvas changes
-
-  const handleChange = (elements) => {
-    setElements(elements);
-    // Additional logic for saving or processing changes could go here
+  const handleChange = (updatedElements: any) => {
+    if (JSON.stringify(updatedElements) !== JSON.stringify(elements)) {
+      setElements(updatedElements);
+    }
   };
 
-  // Toggle AI analysis panel
-  const toggleAnalysis = () => {
-    setShowAnalysis(!showAnalysis);
-  };
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (excalidrawRef.current && elements) {
+      excalidrawRef.current.updateScene({ elements });
+    }
+  }, [elements]);
 
-  // Toggle collaboration mode
-  const toggleCollaboration = () => {
-    setIsCollaborating(!isCollaborating);
-    // Additional logic for initiating collaboration session could go here
+  const toggleAnalysis = () => setShowAnalysis(!showAnalysis);
+  const toggleCollaboration = () => setIsCollaborating(!isCollaborating);
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+    document.documentElement.classList.toggle("dark");
   };
 
   return (
-    <main className="h-screen flex flex-col">
-      {/* Top toolbar */}
-      <div className="bg-secondary p-2 flex justify-between items-center">
-        <h1 className="text-xl font-bold">Whiteboard</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={toggleAnalysis}>
-            {showAnalysis ? "Hide Analysis" : "Show Analysis"}
-          </Button>
-          <Button
-            variant={isCollaborating ? "secondary" : "outline"}
-            size="sm"
-            onClick={toggleCollaboration}
+    <TooltipProvider>
+      <main className="h-screen flex flex-col font-sans">
+        {/* Top Toolbar */}
+        <div className="backdrop-blur-xl bg-gray-900/50 border-b border-gray-700/50 shadow-2xl p-4 flex justify-between items-center rounded-b-3xl mx-4 mt-4 transition-all duration-300">
+          <h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
+            Whiteboard
+          </h1>
+          <div className="flex gap-3 items-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleAnalysis}
+                  className="relative bg-gray-800/50 border-gray-600 text-white hover:bg-gradient-to-r hover:from-pink-500/20 hover:to-purple-500/20 transition-all duration-300 hover:shadow-[0_0_15px_rgba(236,72,153,0.5)]"
+                >
+                  {showAnalysis ? "Hide Analysis" : "Show Analysis"}
+                  <span className="absolute inset-0 rounded-md bg-gradient-to-r from-pink-500/20 to-purple-500/20 opacity-0 hover:opacity-100 transition-opacity" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Toggle AI analysis panel</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={isCollaborating ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={toggleCollaboration}
+                  className={cn(
+                    "relative bg-gray-800/50 border-gray-600 text-white transition-all duration-300",
+                    isCollaborating
+                      ? "bg-gradient-to-r from-green-400 to-blue-500 shadow-[0_0_15px_rgba(74,222,128,0.5)]"
+                      : "hover:bg-gradient-to-r hover:from-green-400/20 hover:to-blue-500/20 hover:shadow-[0_0_15px_rgba(74,222,128,0.3)]"
+                  )}
+                >
+                  {isCollaborating ? "Stop Sharing" : "Collaborate"}
+                  <span className="absolute inset-0 rounded-md bg-gradient-to-r from-green-400/20 to-blue-500/20 opacity-0 hover:opacity-100 transition-opacity" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Start or stop collaborative session</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleTheme}
+                  className="text-white hover:bg-gray-700/50"
+                >
+                  {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Toggle {theme === "dark" ? "light" : "dark"} mode</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex flex-1 overflow-hidden px-4 py-2 gap-4">
+          {/* Excalidraw Canvas */}
+          <div
+            className={cn(
+              "flex-1 rounded-3xl shadow-2xl overflow-hidden transition-all duration-500 bg-white/10 backdrop-blur-md",
+              showAnalysis ? "w-3/4" : "w-full",
+              "border border-gray-700/50 hover:shadow-[0_0_20px_rgba(99,102,241,0.3)]"
+            )}
           >
-            {isCollaborating ? "Stop Sharing" : "Collaborate"}
-          </Button>
-        </div>
-      </div>
+            <Excalidraw
+              ref={excalidrawRef}
+              onChange={handleChange}
+              initialData={{ elements: elements || [] }}
+              theme={theme}
+            />
+          </div>
 
-      {/* Main content area with Excalidraw and optional panels */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Excalidraw canvas (main component) */}
-        <div className={cn("flex-1", showAnalysis ? "w-3/4" : "w-full")}>
-          <Excalidraw
-            ref={excalidrawRef}
-            onChange={handleChange}
-            initialData={{ elements }}
-            excalidrawAPI={(api) => {
-              // This ensures the component updates when elements change in the store
-              if (api && elements) {
-                api.updateScene({ elements });
-              }
-            }}
-          />
+          {/* AI Analysis Panel */}
+          {showAnalysis && (
+            <Card
+              className={cn(
+                "w-1/4 bg-gray-900/70 backdrop-blur-xl border-gray-700/50 rounded-3xl shadow-2xl flex flex-col gap-4",
+                "animate-in slide-in-from-right duration-500 hover:shadow-[0_0_20px_rgba(236,72,153,0.3)]"
+              )}
+            >
+              <CardHeader className="px-6 py-4 pb-2">
+                <CardTitle className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-pink-400">
+                  AI Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-6 py-2 space-y-6">
+                <div className="bg-gray-800/50 p-4 rounded-xl shadow-inner hover:bg-gray-800/70 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-white">Shape Recognition</h3>
+                    <Badge
+                      variant="outline"
+                      className="bg-gradient-to-r from-indigo-500/20 to-pink-500/20 text-white border-indigo-500/50"
+                    >
+                      6 items
+                    </Badge>
+                  </div>
+                  <Separator className="bg-gray-700/50 my-2" />
+                  <p className="text-sm text-gray-300">
+                    Detected <span className="font-bold text-pink-400">3 rectangles</span>,{" "}
+                    <span className="font-bold text-indigo-400">2 circles</span>, and{" "}
+                    <span className="font-bold text-purple-400">1 triangle</span>
+                  </p>
+                </div>
+                <div className="bg-gray-800/50 p-4 rounded-xl shadow-inner hover:bg-gray-800/70 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-white">Text Analysis</h3>
+                    <Badge
+                      variant="outline"
+                      className="bg-gradient-to-r from-indigo-500/20 to-pink-500/20 text-white border-indigo-500/50"
+                    >
+                      3 topics
+                    </Badge>
+                  </div>
+                  <Separator className="bg-gray-700/50 my-2" />
+                  <p className="text-sm text-gray-300">
+                    Identified key topics:{" "}
+                    <span className="font-bold text-indigo-300">Design</span>,{" "}
+                    <span className="font-bold text-pink-300">Planning</span>,{" "}
+                    <span className="font-bold text-purple-300">Structure</span>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* AI Analysis Panel (conditionally rendered) */}
-        {showAnalysis && (
-          <div className="w-1/4 bg-card p-4 border-l border-border overflow-y-auto">
-            <h2 className="text-lg font-medium mb-4">AI Analysis</h2>
-            <div className="space-y-4">
-              <div className="bg-muted p-3 rounded-md">
-                <h3 className="font-medium">Shape Recognition</h3>
-                <p className="text-sm text-muted-foreground">
-                  Detected 3 rectangles, 2 circles, and 1 triangle
-                </p>
-              </div>
-              <div className="bg-muted p-3 rounded-md">
-                <h3 className="font-medium">Text Analysis</h3>
-                <p className="text-sm text-muted-foreground">
-                  Identified key topics: Design, Planning, Structure
-                </p>
-              </div>
+        {/* Collaboration Status Bar */}
+        {isCollaborating && (
+          <div className="bg-gradient-to-r from-green-500/80 to-blue-600/80 text-white p-3 flex items-center gap-2 rounded-t-3xl mx-4 mb-4 shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <div className="text-sm">
+              <span className="font-medium">Room: </span>
+              <span className="text-gray-200">
+                {roomId || "Creating session..."}
+              </span>
+            </div>
+            <div className="ml-auto flex gap-2 items-center">
+              <div className="h-2 w-2 rounded-full bg-green-300 animate-pulse" />
+              <Badge
+                variant="outline"
+                className="text-xs bg-white/10 border-green-400/50 text-green-200"
+              >
+                2 users connected
+              </Badge>
             </div>
           </div>
         )}
-      </div>
-
-      {/* Collaboration status bar (bottom) */}
-      {isCollaborating && (
-        <div className="bg-accent p-2 flex items-center gap-2">
-          <div className="text-sm">
-            <span className="font-medium">Room: </span>
-            <span className="text-muted-foreground">
-              {roomId || "Creating session..."}
-            </span>
-          </div>
-          <div className="ml-auto flex gap-2">
-            <div className="h-2 w-2 rounded-full bg-green-500"></div>
-            <span className="text-xs">2 users connected</span>
-          </div>
-        </div>
-      )}
-    </main>
+      </main>
+    </TooltipProvider>
   );
 }
